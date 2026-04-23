@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(git --version)",
+      "Bash(npx --yes create-next-app@latest . --typescript --tailwind --app --no-src-dir --eslint --import-alias \"@/*\" --turbopack --use-npm --yes)",
+      "Bash(npx --yes create-next-app@latest --help)",
+      "Read(//d/IAF 2027/**)",
+      "Bash(npx --yes create-next-app@latest iaf-vip-tmp --typescript --tailwind --app --no-src-dir --eslint --import-alias \"@/*\" --turbopack --use-npm --disable-git --skip-install --yes)",
+      "Bash(mv \"/d/IAF 2027/iaf-vip-tmp\"/* \"/d/IAF 2027/IT APP/\")",
+      "Bash(mv \"/d/IAF 2027/iaf-vip-tmp\"/.gitignore \"/d/IAF 2027/IT APP/\")",
+      "Bash(rmdir \"/d/IAF 2027/iaf-vip-tmp\")",
+      "Bash(npm install *)",
+      "Bash(NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder npm run build)",
+      "Bash(mv middleware.ts proxy.ts)",
+      "Read(//d/d/IAF 2027/IT APP/**)",
+      "Bash(mv Stacked.png logo-stacked.png)",
+      "Bash(mv Horizontal.png logo-horizontal.png)",
+      "Bash(rm -f file.svg globe.svg next.svg vercel.svg window.svg)"
+    ]
+  }
+}
