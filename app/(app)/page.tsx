@@ -11,13 +11,36 @@ type InvitationWithJoins = {
   vip: { id: string; full_name: string } | null;
 };
 
+type EventRow = {
+  id: string;
+  name: string;
+  event_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  venue: string | null;
+  capacity: number | null;
+};
+
+const STATUSES: RsvpStatus[] = [
+  "accepted",
+  "tentative",
+  "invited",
+  "waitlist",
+  "declined",
+  "not_sent",
+];
+
 export default async function Dashboard() {
   const supabase = await createClient();
 
   const [vipsRes, eventsRes, invitationsRes, recentRes] = await Promise.all([
     supabase.from("vips").select("id", { count: "exact", head: true }),
-    supabase.from("events").select("id, name, event_date, start_time, end_time, venue").order("event_date"),
-    supabase.from("invitations").select("status"),
+    supabase
+      .from("events")
+      .select("id, name, event_date, start_time, end_time, venue, capacity")
+      .order("event_date")
+      .order("start_time"),
+    supabase.from("invitations").select("event_id, status, companions_attending"),
     supabase
       .from("invitations")
       .select("status, event:events(id,name,event_date), vip:vips(id,full_name)")
@@ -26,20 +49,39 @@ export default async function Dashboard() {
   ]);
 
   const vipCount = vipsRes.count ?? 0;
-  const events = eventsRes.data ?? [];
+  const events = (eventsRes.data ?? []) as EventRow[];
   const invitations = invitationsRes.data ?? [];
   const recent = (recentRes.data ?? []) as unknown as InvitationWithJoins[];
 
-  const counts: Record<string, number> = {
-    accepted: 0, invited: 0, declined: 0, tentative: 0, waitlist: 0, not_sent: 0,
+  // Per-event RSVP bucketing
+  type EventCounts = {
+    accepted: number;
+    tentative: number;
+    invited: number;
+    waitlist: number;
+    declined: number;
+    not_sent: number;
+    confirmed_heads: number; // accepted VIPs + their companions
   };
-  for (const i of invitations) counts[i.status] = (counts[i.status] ?? 0) + 1;
+  const byEvent = new Map<string, EventCounts>();
+  for (const i of invitations) {
+    const bucket =
+      byEvent.get(i.event_id) ??
+      { accepted: 0, tentative: 0, invited: 0, waitlist: 0, declined: 0, not_sent: 0, confirmed_heads: 0 };
+    bucket[i.status as RsvpStatus] = (bucket[i.status as RsvpStatus] ?? 0) + 1;
+    if (i.status === "accepted") {
+      bucket.confirmed_heads += 1 + (i.companions_attending ?? 0);
+    }
+    byEvent.set(i.event_id, bucket);
+  }
+
+  const totalConfirmed = invitations.filter((i) => i.status === "accepted").length;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const upcoming = events
-    .filter((e) => new Date(e.event_date + "T00:00:00") >= today)
-    .slice(0, 5);
+  const upcoming = events.filter(
+    (e) => new Date(e.event_date + "T00:00:00") >= today
+  );
 
   return (
     <>
@@ -53,63 +95,88 @@ export default async function Dashboard() {
         <Stat label="VIPs" value={vipCount} href="/vips" />
         <Stat label="Events" value={events.length} href="/events" />
         <Stat label="Invitations" value={invitations.length} />
-        <Stat label="Confirmed" value={counts.accepted} />
+        <Stat label="Confirmed" value={totalConfirmed} />
       </section>
 
-      <section className="grid md:grid-cols-2 gap-10">
-        <div>
-          <h2 className="iaf-display text-3xl mb-6">RSVP Breakdown</h2>
-          <div className="border border-neutral-200">
-            {(["accepted", "tentative", "invited", "waitlist", "declined", "not_sent"] as RsvpStatus[]).map(
-              (s) => (
-                <div
-                  key={s}
-                  className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 last:border-b-0"
-                >
-                  <StatusBadge status={s} />
-                  <span className="text-2xl font-bold tabular-nums tracking-tight">
-                    {counts[s] ?? 0}
-                  </span>
-                </div>
-              )
-            )}
-          </div>
+      <section className="mb-14">
+        <div className="flex items-end justify-between mb-6">
+          <h2 className="iaf-display text-3xl">Upcoming Events — RSVP Status</h2>
+          <Link href="/events" className="text-sm text-neutral-500 hover:text-neutral-900 underline">
+            See all events →
+          </Link>
         </div>
 
-        <div>
-          <h2 className="iaf-display text-3xl mb-6">Upcoming Events</h2>
-          {upcoming.length === 0 ? (
-            <p className="text-neutral-500 text-sm">
-              No upcoming events. <Link href="/events/new" className="underline">Add one →</Link>
-            </p>
-          ) : (
-            <ul className="border border-neutral-200">
-              {upcoming.map((e) => (
-                <li key={e.id} className="border-b border-neutral-200 last:border-b-0">
-                  <Link
-                    href={`/events/${e.id}`}
-                    className="flex items-center justify-between gap-4 px-4 py-4 hover:bg-neutral-50"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-[11px] uppercase tracking-widest text-neutral-500">
-                        {formatDate(e.event_date)} · {formatTimeRange(e.start_time, e.end_time)}
-                      </div>
-                      <div className="font-medium truncate">{e.name}</div>
-                      {e.venue && (
-                        <div className="text-sm text-neutral-500 truncate">{e.venue}</div>
-                      )}
-                    </div>
-                    <span className="text-neutral-400">→</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        {upcoming.length === 0 ? (
+          <p className="text-neutral-500 text-sm border border-dashed border-neutral-300 px-4 py-8 text-center">
+            No upcoming events. <Link href="/events/new" className="underline">Add one →</Link>
+          </p>
+        ) : (
+          <div className="border border-neutral-200 overflow-x-auto scrollbar-thin">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-widest text-neutral-500 border-b border-neutral-200">
+                  <th className="px-4 py-3 font-medium">Date</th>
+                  <th className="px-4 py-3 font-medium">Event</th>
+                  {STATUSES.map((s) => (
+                    <th key={s} className="px-3 py-3 font-medium text-center whitespace-nowrap">
+                      {RSVP_LABELS[s]}
+                    </th>
+                  ))}
+                  <th className="px-3 py-3 font-medium text-right whitespace-nowrap">Heads</th>
+                </tr>
+              </thead>
+              <tbody>
+                {upcoming.map((e) => {
+                  const c = byEvent.get(e.id) ?? {
+                    accepted: 0, tentative: 0, invited: 0, waitlist: 0, declined: 0, not_sent: 0, confirmed_heads: 0,
+                  };
+                  return (
+                    <tr key={e.id} className="border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
+                      <td className="px-4 py-3 align-top whitespace-nowrap text-neutral-700">
+                        <div>{formatDate(e.event_date)}</div>
+                        <div className="text-xs text-neutral-500">
+                          {formatTimeRange(e.start_time, e.end_time)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <Link href={`/events/${e.id}`} className="font-medium hover:underline">
+                          {e.name}
+                        </Link>
+                        {e.venue && (
+                          <div className="text-xs text-neutral-500 truncate max-w-xs">{e.venue}</div>
+                        )}
+                      </td>
+                      {STATUSES.map((s) => (
+                        <td
+                          key={s}
+                          className={`px-3 py-3 align-top text-center tabular-nums ${
+                            c[s] === 0 ? "text-neutral-300" : "text-neutral-900 font-semibold"
+                          }`}
+                        >
+                          {c[s]}
+                        </td>
+                      ))}
+                      <td className="px-3 py-3 align-top text-right tabular-nums whitespace-nowrap">
+                        <span className="font-bold">{c.confirmed_heads}</span>
+                        {e.capacity && (
+                          <span className="text-neutral-400"> / {e.capacity}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <p className="mt-3 text-xs text-neutral-500">
+          <strong>Heads</strong> = confirmed VIPs + their attending companions (the number to plan catering for).
+        </p>
       </section>
 
       {recent.length > 0 && (
-        <section className="mt-14">
+        <section>
           <h2 className="iaf-display text-3xl mb-6">Recent RSVP Activity</h2>
           <div className="border border-neutral-200">
             {recent.map((r, i) => (
