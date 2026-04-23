@@ -30,6 +30,8 @@ const STATUSES: RsvpStatus[] = [
   "not_sent",
 ];
 
+export const dynamic = "force-dynamic";
+
 export default async function Dashboard() {
   const supabase = await createClient();
 
