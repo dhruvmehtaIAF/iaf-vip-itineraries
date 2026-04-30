@@ -14,10 +14,7 @@ export default async function EditVipPage({
   if (!(await isAdmin())) redirect(`/vips/${id}`);
 
   const supabase = await createClient();
-  const [{ data: vip }, { data: hosts }] = await Promise.all([
-    supabase.from("vips").select("*").eq("id", id).single(),
-    supabase.from("profiles").select("id, full_name, email").order("full_name", { nullsFirst: false }),
-  ]);
+  const { data: vip } = await supabase.from("vips").select("*").eq("id", id).single();
 
   if (!vip) notFound();
 
@@ -30,7 +27,7 @@ export default async function EditVipPage({
         eyebrow="Edit record"
         title={vip.full_name}
       />
-      <VipForm action={update} vip={vip} hosts={hosts ?? []} submitLabel="Save changes" />
+      <VipForm action={update} vip={vip} submitLabel="Save changes" />
     </>
   );
 }

@@ -4,9 +4,16 @@ import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
 import PageHeader from "@/components/PageHeader";
 import { LinkButton } from "@/components/Button";
-import StatusBadge from "@/components/StatusBadge";
-import { CATEGORY_LABELS, formatDate, formatTimeRange } from "@/lib/utils";
-import type { RsvpStatus } from "@/lib/types";
+import {
+  VIP_CATEGORY_LABELS,
+  VIP_COUNTRY_LABELS,
+  VIP_TYPE_LABELS,
+  formatAddedYear,
+  formatDate,
+  formatDateTime,
+  formatTimeRange,
+} from "@/lib/utils";
+import type { RsvpStatus, Vip } from "@/lib/types";
 import CompanionsSection from "./CompanionsSection";
 import InvitationsSection from "./InvitationsSection";
 import DeleteVipButton from "./DeleteVipButton";
@@ -20,31 +27,25 @@ export default async function VipDetailPage({
   const supabase = await createClient();
   const admin = await isAdmin();
 
-  const [{ data: vip }, { data: host }, { data: companions }, { data: invitations }, { data: allEvents }] =
+  const [{ data: vipRaw }, { data: companions }, { data: invitations }, { data: allEvents }] =
     await Promise.all([
       supabase.from("vips").select("*").eq("id", id).single(),
-      // host fetched separately to avoid complex typing on the nested select
-      Promise.resolve({ data: null }),
       supabase.from("companions").select("*").eq("vip_id", id).order("created_at"),
       supabase
         .from("invitations")
-        .select("id, status, companions_attending, notes, event:events(id,name,event_date,start_time,end_time,venue,dress_code)")
+        .select("id, status, companions_attending, list_number, notes, event:events(id,name,event_date,start_time,end_time,venue,dress_code)")
         .eq("vip_id", id),
       supabase.from("events").select("id, name, event_date").order("event_date"),
     ]);
 
-  void host;
-
-  if (!vip) notFound();
-
-  const { data: hostData } = vip.assigned_host_id
-    ? await supabase.from("profiles").select("full_name, email").eq("id", vip.assigned_host_id).single()
-    : { data: null };
+  if (!vipRaw) notFound();
+  const vip = vipRaw as Vip;
 
   type InvRow = {
     id: string;
     status: RsvpStatus;
     companions_attending: number;
+    list_number: number;
     notes: string | null;
     event: {
       id: string;
@@ -61,15 +62,26 @@ export default async function VipDetailPage({
 
   const accepted = invitationsTyped
     .filter((i) => i.status === "accepted" && i.event)
-    .sort((a, b) => (a.event!.event_date + (a.event!.start_time ?? "")).localeCompare(b.event!.event_date + (b.event!.start_time ?? "")));
+    .sort((a, b) =>
+      (a.event!.event_date + (a.event!.start_time ?? "")).localeCompare(
+        b.event!.event_date + (b.event!.start_time ?? "")
+      )
+    );
+
+  const subtitle = [
+    vip.designation,
+    vip.country ? VIP_COUNTRY_LABELS[vip.country as keyof typeof VIP_COUNTRY_LABELS] : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <>
       <PageHeader
         back={{ href: "/vips", label: "All VIPs" }}
-        eyebrow={CATEGORY_LABELS[vip.category] ?? vip.category}
+        eyebrow={`${VIP_TYPE_LABELS[vip.type] ?? vip.type} · ${VIP_CATEGORY_LABELS[vip.category] ?? vip.category}`}
         title={vip.full_name}
-        subtitle={[vip.country, vip.email].filter(Boolean).join(" · ")}
+        subtitle={subtitle}
         actions={
           <div className="flex items-center gap-2">
             <LinkButton href={`/vips/${vip.id}/itinerary/pdf`} variant="secondary">
@@ -86,35 +98,53 @@ export default async function VipDetailPage({
 
       <div className="grid lg:grid-cols-3 gap-10">
         <section className="lg:col-span-1 space-y-8">
+          <Card title="Profile">
+            <dl className="grid grid-cols-3 gap-y-3 text-sm">
+              <Row label="Designation" value={vip.designation} colSpan />
+              <Row label="Type" value={VIP_TYPE_LABELS[vip.type] ?? vip.type} colSpan />
+              <Row label="Category" value={VIP_CATEGORY_LABELS[vip.category] ?? vip.category} colSpan />
+              <Row label="Added" value={vip.added_year ? formatAddedYear(vip.added_year) : null} colSpan />
+            </dl>
+          </Card>
+
           <Card title="Contact">
             <dl className="grid grid-cols-3 gap-y-3 text-sm">
               <Row label="Email" value={vip.email} colSpan />
               <Row label="Phone" value={vip.phone} colSpan />
-              <Row label="Country" value={vip.country} colSpan />
-              <Row label="Dietary" value={vip.dietary} colSpan />
+              <Row
+                label="Country"
+                value={
+                  vip.country
+                    ? VIP_COUNTRY_LABELS[vip.country as keyof typeof VIP_COUNTRY_LABELS]
+                    : null
+                }
+                colSpan
+              />
             </dl>
           </Card>
 
           <Card title="Travel">
             <dl className="grid grid-cols-3 gap-y-3 text-sm">
               <Row label="Hotel" value={vip.hotel} colSpan />
-              <Row label="Arrival" value={vip.flight_arrival} colSpan />
-              <Row label="Departure" value={vip.flight_departure} colSpan />
+              <Row
+                label="Arrival"
+                value={
+                  vip.arrival_date
+                    ? formatDateTime(vip.arrival_date, vip.arrival_time)
+                    : null
+                }
+                colSpan
+              />
+              <Row
+                label="Departure"
+                value={
+                  vip.departure_date
+                    ? formatDateTime(vip.departure_date, vip.departure_time)
+                    : null
+                }
+                colSpan
+              />
             </dl>
-          </Card>
-
-          <Card title="Assigned Host">
-            <p className="text-sm">
-              {hostData ? (
-                <>
-                  <span className="font-medium">{hostData.full_name ?? "—"}</span>
-                  <br />
-                  <span className="text-neutral-500">{hostData.email}</span>
-                </>
-              ) : (
-                <span className="text-neutral-400">Unassigned</span>
-              )}
-            </p>
           </Card>
 
           {vip.notes && (
@@ -194,7 +224,15 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-function Row({ label, value, colSpan }: { label: string; value: string | null; colSpan?: boolean }) {
+function Row({
+  label,
+  value,
+  colSpan,
+}: {
+  label: string;
+  value: string | null;
+  colSpan?: boolean;
+}) {
   return (
     <>
       <dt className="col-span-1 text-neutral-500 text-xs pt-0.5">{label}</dt>

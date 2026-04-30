@@ -4,8 +4,14 @@ import { isAdmin } from "@/lib/auth";
 import PageHeader from "@/components/PageHeader";
 import { LinkButton } from "@/components/Button";
 import StatusBadge from "@/components/StatusBadge";
-import { CATEGORY_LABELS, formatDate, formatTimeRange, RSVP_LABELS } from "@/lib/utils";
-import type { RsvpStatus, VipCategory } from "@/lib/types";
+import {
+  VIP_CATEGORY_LABELS,
+  VIP_TYPE_LABELS,
+  formatDate,
+  formatTimeRange,
+  RSVP_LABELS,
+} from "@/lib/utils";
+import type { RsvpStatus, VipCategory, VipType } from "@/lib/types";
 import EventGuestList from "./EventGuestList";
 import DeleteEventButton from "./DeleteEventButton";
 
@@ -22,9 +28,11 @@ export default async function EventDetailPage({
     supabase.from("events").select("*").eq("id", id).single(),
     supabase
       .from("invitations")
-      .select("id, status, companions_attending, notes, vip:vips(id,full_name,country,category,dietary)")
+      .select(
+        "id, status, companions_attending, list_number, notes, vip:vips(id,full_name,country,type,category,designation)"
+      )
       .eq("event_id", id),
-    supabase.from("vips").select("id, full_name, country, category").order("full_name"),
+    supabase.from("vips").select("id, full_name, country, type, category").order("full_name"),
   ]);
 
   if (!event) notFound();
@@ -33,19 +41,26 @@ export default async function EventDetailPage({
     id: string;
     status: RsvpStatus;
     companions_attending: number;
+    list_number: number;
     notes: string | null;
     vip: {
       id: string;
       full_name: string;
       country: string | null;
+      type: VipType;
       category: VipCategory;
-      dietary: string | null;
+      designation: string | null;
     } | null;
   };
   const rows = (invitations ?? []) as unknown as Row[];
 
   const counts: Record<string, number> = {
-    accepted: 0, invited: 0, tentative: 0, declined: 0, waitlist: 0, not_sent: 0,
+    accepted: 0,
+    invited: 0,
+    tentative: 0,
+    declined: 0,
+    waitlist: 0,
+    not_sent: 0,
   };
   let companionTotal = 0;
   for (const r of rows) {
@@ -75,6 +90,27 @@ export default async function EventDetailPage({
         }
       />
 
+      {(event.description || event.map_url) && (
+        <div className="mb-10 grid md:grid-cols-3 gap-6 items-start">
+          {event.description && (
+            <p className="md:col-span-2 text-base text-neutral-800 leading-relaxed">
+              {event.description}
+            </p>
+          )}
+          {event.map_url && (
+            <a
+              href={event.map_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-neutral-700 hover:text-neutral-900 underline self-start"
+            >
+              <span aria-hidden>📍</span>
+              View on map
+            </a>
+          )}
+        </div>
+      )}
+
       <section className="grid grid-cols-2 md:grid-cols-4 gap-px bg-neutral-200 border border-neutral-200 mb-10">
         <Stat label="Confirmed heads" value={confirmedHeads} />
         <Stat label="Tentative" value={counts.tentative} />
@@ -84,7 +120,7 @@ export default async function EventDetailPage({
 
       {event.notes && (
         <div className="border-l-4 border-neutral-900 pl-4 mb-10">
-          <h3 className="text-[11px] uppercase tracking-[0.2em] text-neutral-500 mb-2">Event notes</h3>
+          <h3 className="text-[11px] uppercase tracking-[0.2em] text-neutral-500 mb-2">Internal notes</h3>
           <p className="text-sm whitespace-pre-wrap">{event.notes}</p>
         </div>
       )}
@@ -108,7 +144,8 @@ export default async function EventDetailPage({
         rows={rows.map((r) => ({
           ...r,
           status_label: RSVP_LABELS[r.status],
-          category_label: r.vip ? CATEGORY_LABELS[r.vip.category] : "",
+          type_label: r.vip ? VIP_TYPE_LABELS[r.vip.type] : "",
+          category_label: r.vip ? VIP_CATEGORY_LABELS[r.vip.category] : "",
         }))}
         allVips={allVips ?? []}
         admin={admin}

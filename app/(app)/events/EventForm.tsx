@@ -13,10 +13,12 @@ const textareaCls =
 
 function Field({
   label,
+  hint,
   children,
   span = 1,
 }: {
   label: string;
+  hint?: string;
   children: React.ReactNode;
   span?: 1 | 2 | 3;
 }) {
@@ -26,7 +28,10 @@ function Field({
         span === 3 ? "sm:col-span-3" : span === 2 ? "sm:col-span-2" : ""
       }`}
     >
-      <span className="text-[11px] uppercase tracking-widest text-neutral-500">{label}</span>
+      <span className="text-[11px] uppercase tracking-widest text-neutral-500">
+        {label}
+        {hint && <span className="ml-2 normal-case tracking-normal text-neutral-400">— {hint}</span>}
+      </span>
       {children}
     </label>
   );
@@ -47,6 +52,20 @@ export default function EventForm({
     <form action={formAction} className="grid sm:grid-cols-3 gap-5 max-w-3xl">
       <Field label="Event name" span={3}>
         <input name="name" defaultValue={event?.name ?? ""} className={inputCls} required />
+      </Field>
+
+      <Field
+        label="Description"
+        hint="1–2 lines — appears on the printed itinerary"
+        span={3}
+      >
+        <textarea
+          name="description"
+          defaultValue={event?.description ?? ""}
+          className={textareaCls}
+          maxLength={300}
+          placeholder="A short, public-facing description of the event."
+        />
       </Field>
 
       <Field label="Date">
@@ -79,6 +98,16 @@ export default function EventForm({
         <input name="venue" defaultValue={event?.venue ?? ""} className={inputCls} />
       </Field>
 
+      <Field label="Map link" hint="Google Maps share URL — shows up as a pin in the itinerary" span={3}>
+        <input
+          name="map_url"
+          type="url"
+          defaultValue={event?.map_url ?? ""}
+          className={inputCls}
+          placeholder="https://maps.google.com/?q=…"
+        />
+      </Field>
+
       <Field label="Dress code">
         <input name="dress_code" defaultValue={event?.dress_code ?? ""} className={inputCls} />
       </Field>
@@ -101,7 +130,7 @@ export default function EventForm({
         <span className="text-sm">Invite-only</span>
       </label>
 
-      <Field label="Notes" span={3}>
+      <Field label="Internal notes" hint="Not shown on itinerary" span={3}>
         <textarea name="notes" defaultValue={event?.notes ?? ""} className={textareaCls} />
       </Field>
 

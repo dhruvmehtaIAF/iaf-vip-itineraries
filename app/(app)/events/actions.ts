@@ -21,10 +21,12 @@ export type EventFormState = { error?: string } | undefined;
 function extractPayload(formData: FormData) {
   return {
     name: parseString(formData.get("name")),
+    description: parseString(formData.get("description")),
     event_date: parseString(formData.get("event_date")),
     start_time: parseString(formData.get("start_time")),
     end_time: parseString(formData.get("end_time")),
     venue: parseString(formData.get("venue")),
+    map_url: parseString(formData.get("map_url")),
     dress_code: parseString(formData.get("dress_code")),
     capacity: parseInt(formData.get("capacity")),
     invite_only: formData.get("invite_only") === "on",

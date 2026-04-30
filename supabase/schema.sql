@@ -1,18 +1,43 @@
 -- IAF VIP Itineraries — database schema
 -- Run this in Supabase SQL Editor after creating the project.
+--
+-- WARNING: this script DROPS the data tables (vips, companions, events,
+-- invitations) and their enums before recreating them. Profiles / auth.users
+-- are NOT touched. Re-run is safe but will wipe VIP/event data.
 
 -- Extensions
 create extension if not exists "pgcrypto";
 
 -- ============================================================
+-- Drop old data tables + enums (idempotent rebuild)
+-- ============================================================
+drop table if exists invitations cascade;
+drop table if exists companions  cascade;
+drop table if exists events      cascade;
+drop table if exists vips        cascade;
+
+drop type if exists rsvp_status;
+drop type if exists vip_category;
+drop type if exists vip_type;
+drop type if exists vip_country;
+
+-- ============================================================
 -- Enums
 -- ============================================================
-create type user_role as enum ('admin', 'viewer');
-create type vip_category as enum ('collector', 'artist', 'press', 'sponsor', 'curator', 'gallerist', 'institution', 'other');
-create type rsvp_status as enum ('not_sent', 'invited', 'accepted', 'declined', 'tentative', 'waitlist');
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'user_role') then
+    create type user_role as enum ('admin', 'viewer');
+  end if;
+end $$;
+
+create type vip_country  as enum ('india', 'international');
+create type vip_type     as enum ('collector', 'exhibitor', 'curator', 'press', 'sponsor', 'artist', 'institution', 'other');
+create type vip_category as enum ('patrons', 'level_1', 'level_2', 'level_3', 'level_4', 'young_collector');
+create type rsvp_status  as enum ('not_sent', 'invited', 'accepted', 'declined', 'tentative', 'waitlist');
 
 -- ============================================================
 -- profiles: mirrors auth.users, adds role + name
+-- (Created on first run; preserved on re-run.)
 -- ============================================================
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -63,46 +88,52 @@ $$;
 -- ============================================================
 -- vips
 -- ============================================================
-create table if not exists vips (
+create table vips (
   id uuid primary key default gen_random_uuid(),
-  full_name text not null,
-  email text,
-  phone text,
-  country text,
-  category vip_category not null default 'other',
-  dietary text,
-  hotel text,
-  flight_arrival text,
-  flight_departure text,
-  assigned_host_id uuid references profiles(id) on delete set null,
-  notes text,
+  full_name      text not null,
+  designation    text,
+  email          text,
+  phone          text,
+  country        vip_country,
+  type           vip_type     not null default 'other',
+  category       vip_category not null default 'level_4',
+  added_year     int,
+  hotel          text,
+  arrival_date   date,
+  arrival_time   time,
+  departure_date date,
+  departure_time time,
+  notes          text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-create index if not exists vips_country_idx on vips (country);
-create index if not exists vips_category_idx on vips (category);
-create index if not exists vips_host_idx on vips (assigned_host_id);
+create index vips_country_idx  on vips (country);
+create index vips_type_idx     on vips (type);
+create index vips_category_idx on vips (category);
+create index vips_added_year_idx on vips (added_year);
 
 -- companions (+1s)
-create table if not exists companions (
+create table companions (
   id uuid primary key default gen_random_uuid(),
   vip_id uuid not null references vips(id) on delete cascade,
   full_name text not null,
   notes text,
   created_at timestamptz not null default now()
 );
-create index if not exists companions_vip_idx on companions (vip_id);
+create index companions_vip_idx on companions (vip_id);
 
 -- ============================================================
 -- events
 -- ============================================================
-create table if not exists events (
+create table events (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  description text,
   event_date date not null,
   start_time time,
   end_time time,
   venue text,
+  map_url text,
   dress_code text,
   capacity int,
   invite_only boolean not null default true,
@@ -110,16 +141,17 @@ create table if not exists events (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-create index if not exists events_date_idx on events (event_date);
+create index events_date_idx on events (event_date);
 
 -- ============================================================
--- invitations (VIP × Event with RSVP status)
+-- invitations (VIP × Event with list-tier + RSVP status)
 -- ============================================================
-create table if not exists invitations (
+create table invitations (
   id uuid primary key default gen_random_uuid(),
-  vip_id uuid not null references vips(id) on delete cascade,
+  vip_id   uuid not null references vips(id)   on delete cascade,
   event_id uuid not null references events(id) on delete cascade,
-  status rsvp_status not null default 'not_sent',
+  list_number int not null default 1 check (list_number >= 1),
+  status      rsvp_status not null default 'not_sent',
   companions_attending int not null default 0,
   responded_at timestamptz,
   notes text,
@@ -127,9 +159,10 @@ create table if not exists invitations (
   updated_at timestamptz not null default now(),
   unique (vip_id, event_id)
 );
-create index if not exists invitations_vip_idx on invitations (vip_id);
-create index if not exists invitations_event_idx on invitations (event_id);
-create index if not exists invitations_status_idx on invitations (status);
+create index invitations_vip_idx        on invitations (vip_id);
+create index invitations_event_idx      on invitations (event_id);
+create index invitations_event_list_idx on invitations (event_id, list_number);
+create index invitations_status_idx     on invitations (status);
 
 -- ============================================================
 -- updated_at triggers

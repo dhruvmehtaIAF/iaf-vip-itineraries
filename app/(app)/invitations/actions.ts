@@ -18,16 +18,23 @@ function parseStatus(v: FormDataEntryValue | null): RsvpStatus {
   return (STATUSES as string[]).includes(s) ? (s as RsvpStatus) : "not_sent";
 }
 
+function parseListNumber(v: FormDataEntryValue | null): number {
+  const s = (v ?? "1").toString();
+  const n = Math.floor(Number(s));
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
 export async function inviteVipToEvent(formData: FormData) {
   const { supabase } = await requireAdmin();
   const vip_id = formData.get("vip_id")?.toString();
   const event_id = formData.get("event_id")?.toString();
   const status = parseStatus(formData.get("status"));
+  const list_number = parseListNumber(formData.get("list_number"));
   if (!vip_id || !event_id) return;
 
   await supabase
     .from("invitations")
-    .upsert({ vip_id, event_id, status }, { onConflict: "vip_id,event_id" });
+    .upsert({ vip_id, event_id, status, list_number }, { onConflict: "vip_id,event_id" });
 
   revalidatePath(`/vips/${vip_id}`);
   revalidatePath(`/events/${event_id}`);
@@ -49,6 +56,18 @@ export async function setInvitationStatus(
     updates.responded_at = null;
   }
   await supabase.from("invitations").update(updates).eq("id", invitationId);
+  if (revalidate.vipId) revalidatePath(`/vips/${revalidate.vipId}`);
+  if (revalidate.eventId) revalidatePath(`/events/${revalidate.eventId}`);
+}
+
+export async function setInvitationListNumber(
+  invitationId: string,
+  listNumber: number,
+  revalidate: { vipId?: string; eventId?: string }
+) {
+  const { supabase } = await requireAdmin();
+  const clean = Number.isFinite(listNumber) && listNumber >= 1 ? Math.floor(listNumber) : 1;
+  await supabase.from("invitations").update({ list_number: clean }).eq("id", invitationId);
   if (revalidate.vipId) revalidatePath(`/vips/${revalidate.vipId}`);
   if (revalidate.eventId) revalidatePath(`/events/${revalidate.eventId}`);
 }

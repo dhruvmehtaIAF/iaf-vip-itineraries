@@ -3,22 +3,44 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
-import type { VipCategory } from "@/lib/types";
+import type { VipCategory, VipCountry, VipType } from "@/lib/types";
 
-const CATEGORIES: VipCategory[] = [
+const VIP_TYPES: VipType[] = [
   "collector",
-  "artist",
+  "exhibitor",
+  "curator",
   "press",
   "sponsor",
-  "curator",
-  "gallerist",
+  "artist",
   "institution",
   "other",
 ];
 
-function parseCategory(v: FormDataEntryValue | null): VipCategory {
+const VIP_CATEGORIES: VipCategory[] = [
+  "patrons",
+  "level_1",
+  "level_2",
+  "level_3",
+  "level_4",
+  "young_collector",
+];
+
+const VIP_COUNTRIES: VipCountry[] = ["india", "international"];
+
+function parseType(v: FormDataEntryValue | null): VipType {
   const s = (v ?? "other").toString();
-  return (CATEGORIES as string[]).includes(s) ? (s as VipCategory) : "other";
+  return (VIP_TYPES as string[]).includes(s) ? (s as VipType) : "other";
+}
+
+function parseCategory(v: FormDataEntryValue | null): VipCategory {
+  const s = (v ?? "level_4").toString();
+  return (VIP_CATEGORIES as string[]).includes(s) ? (s as VipCategory) : "level_4";
+}
+
+function parseCountry(v: FormDataEntryValue | null): VipCountry | null {
+  const s = (v ?? "").toString();
+  if (!s) return null;
+  return (VIP_COUNTRIES as string[]).includes(s) ? (s as VipCountry) : null;
 }
 
 function parseString(v: FormDataEntryValue | null): string | null {
@@ -26,56 +48,69 @@ function parseString(v: FormDataEntryValue | null): string | null {
   return s.length ? s : null;
 }
 
+function parseYear(v: FormDataEntryValue | null): number | null {
+  const s = (v ?? "").toString().trim();
+  if (!s) return null;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return null;
+  const yr = Math.floor(n);
+  // Sanity check — IAF started 2008; allow a generous window.
+  if (yr < 2000 || yr > 2100) return null;
+  return yr;
+}
+
 export type VipFormState = { error?: string } | undefined;
+
+function extractPayload(formData: FormData) {
+  return {
+    full_name: parseString(formData.get("full_name")),
+    designation: parseString(formData.get("designation")),
+    email: parseString(formData.get("email")),
+    phone: parseString(formData.get("phone")),
+    country: parseCountry(formData.get("country")),
+    type: parseType(formData.get("type")),
+    category: parseCategory(formData.get("category")),
+    added_year: parseYear(formData.get("added_year")),
+    hotel: parseString(formData.get("hotel")),
+    arrival_date: parseString(formData.get("arrival_date")),
+    arrival_time: parseString(formData.get("arrival_time")),
+    departure_date: parseString(formData.get("departure_date")),
+    departure_time: parseString(formData.get("departure_time")),
+    notes: parseString(formData.get("notes")),
+  };
+}
 
 export async function createVip(_prev: VipFormState, formData: FormData): Promise<VipFormState> {
   const { supabase } = await requireAdmin();
 
-  const full_name = parseString(formData.get("full_name"));
-  if (!full_name) return { error: "Name is required." };
+  const payload = extractPayload(formData);
+  if (!payload.full_name) return { error: "Name is required." };
 
-  const payload = {
-    full_name,
-    email: parseString(formData.get("email")),
-    phone: parseString(formData.get("phone")),
-    country: parseString(formData.get("country")),
-    category: parseCategory(formData.get("category")),
-    dietary: parseString(formData.get("dietary")),
-    hotel: parseString(formData.get("hotel")),
-    flight_arrival: parseString(formData.get("flight_arrival")),
-    flight_departure: parseString(formData.get("flight_departure")),
-    assigned_host_id: parseString(formData.get("assigned_host_id")),
-    notes: parseString(formData.get("notes")),
-  };
-
-  const { data, error } = await supabase.from("vips").insert(payload).select("id").single();
+  const { data, error } = await supabase
+    .from("vips")
+    .insert({ ...payload, full_name: payload.full_name })
+    .select("id")
+    .single();
   if (error) return { error: error.message };
 
   revalidatePath("/vips");
   redirect(`/vips/${data.id}`);
 }
 
-export async function updateVip(id: string, _prev: VipFormState, formData: FormData): Promise<VipFormState> {
+export async function updateVip(
+  id: string,
+  _prev: VipFormState,
+  formData: FormData
+): Promise<VipFormState> {
   const { supabase } = await requireAdmin();
 
-  const full_name = parseString(formData.get("full_name"));
-  if (!full_name) return { error: "Name is required." };
+  const payload = extractPayload(formData);
+  if (!payload.full_name) return { error: "Name is required." };
 
-  const payload = {
-    full_name,
-    email: parseString(formData.get("email")),
-    phone: parseString(formData.get("phone")),
-    country: parseString(formData.get("country")),
-    category: parseCategory(formData.get("category")),
-    dietary: parseString(formData.get("dietary")),
-    hotel: parseString(formData.get("hotel")),
-    flight_arrival: parseString(formData.get("flight_arrival")),
-    flight_departure: parseString(formData.get("flight_departure")),
-    assigned_host_id: parseString(formData.get("assigned_host_id")),
-    notes: parseString(formData.get("notes")),
-  };
-
-  const { error } = await supabase.from("vips").update(payload).eq("id", id);
+  const { error } = await supabase
+    .from("vips")
+    .update({ ...payload, full_name: payload.full_name })
+    .eq("id", id);
   if (error) return { error: error.message };
 
   revalidatePath("/vips");

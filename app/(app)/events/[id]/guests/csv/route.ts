@@ -1,6 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
-import { CATEGORY_LABELS, RSVP_LABELS } from "@/lib/utils";
-import type { RsvpStatus, VipCategory } from "@/lib/types";
+import {
+  RSVP_LABELS,
+  VIP_CATEGORY_LABELS,
+  VIP_COUNTRY_LABELS,
+  VIP_TYPE_LABELS,
+  formatAddedYear,
+} from "@/lib/utils";
+import type { RsvpStatus, VipCategory, VipCountry, VipType } from "@/lib/types";
 
 function csvEscape(v: string | number | null | undefined): string {
   if (v === null || v === undefined) return "";
@@ -18,7 +24,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     supabase
       .from("invitations")
       .select(
-        "status, companions_attending, notes, vip:vips(full_name, email, phone, country, category, dietary, hotel)"
+        "status, companions_attending, list_number, notes, vip:vips(full_name, designation, email, phone, country, type, category, added_year, hotel)"
       )
       .eq("event_id", id),
   ]);
@@ -30,29 +36,38 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   type Row = {
     status: RsvpStatus;
     companions_attending: number;
+    list_number: number;
     notes: string | null;
     vip: {
       full_name: string;
+      designation: string | null;
       email: string | null;
       phone: string | null;
-      country: string | null;
+      country: VipCountry | null;
+      type: VipType;
       category: VipCategory;
-      dietary: string | null;
+      added_year: number | null;
       hotel: string | null;
     } | null;
   };
   const rows = (invitations ?? []) as unknown as Row[];
-  rows.sort((a, b) => (a.vip?.full_name ?? "").localeCompare(b.vip?.full_name ?? ""));
+  rows.sort((a, b) => {
+    if (a.list_number !== b.list_number) return a.list_number - b.list_number;
+    return (a.vip?.full_name ?? "").localeCompare(b.vip?.full_name ?? "");
+  });
 
   const headers = [
+    "List",
     "Name",
+    "Designation",
     "Status",
     "Companions",
+    "Type",
     "Category",
     "Country",
+    "Added",
     "Email",
     "Phone",
-    "Dietary",
     "Hotel",
     "Notes",
   ];
@@ -60,14 +75,17 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   for (const r of rows) {
     lines.push(
       [
+        r.list_number,
         r.vip?.full_name,
+        r.vip?.designation,
         RSVP_LABELS[r.status] ?? r.status,
         r.companions_attending,
-        r.vip ? CATEGORY_LABELS[r.vip.category] : "",
-        r.vip?.country,
+        r.vip ? VIP_TYPE_LABELS[r.vip.type] : "",
+        r.vip ? VIP_CATEGORY_LABELS[r.vip.category] : "",
+        r.vip?.country ? VIP_COUNTRY_LABELS[r.vip.country] : "",
+        r.vip?.added_year ? formatAddedYear(r.vip.added_year) : "",
         r.vip?.email,
         r.vip?.phone,
-        r.vip?.dietary,
         r.vip?.hotel,
         r.notes,
       ]
