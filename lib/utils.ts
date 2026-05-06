@@ -1,6 +1,11 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { VipCategory, VipCountry, VipType } from "./types";
+import type {
+  EventMode,
+  VipCategory,
+  VipCountry,
+  VipType,
+} from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -85,8 +90,47 @@ export const VIP_COUNTRY_LABELS: Record<VipCountry, string> = {
   international: "International",
 };
 
+export const EVENT_MODE_LABELS: Record<EventMode, string> = {
+  invite: "By invitation",
+  rsvp: "Open RSVP",
+};
+
 /**
  * Back-compat alias — keeps any imports of CATEGORY_LABELS working.
  * After this change, `vip.category` is the tier, so this maps tier → label.
  */
 export const CATEGORY_LABELS: Record<string, string> = VIP_CATEGORY_LABELS;
+
+/**
+ * Build a Google Calendar "create event" URL pre-filled with this event's data.
+ * Works in any browser with a Google Calendar account — opens a new event form.
+ */
+export function googleCalendarUrl(e: {
+  name: string;
+  description: string | null;
+  venue: string | null;
+  map_url: string | null;
+  event_date: string;
+  start_time: string | null;
+  end_time: string | null;
+}): string {
+  const dateCompact = e.event_date.replace(/-/g, ""); // YYYYMMDD
+  const startT = (e.start_time ?? "00:00").replace(":", "") + "00"; // HHMMSS
+  const endT = (e.end_time ?? e.start_time ?? "23:59").replace(":", "") + "00";
+  const dates = `${dateCompact}T${startT}/${dateCompact}T${endT}`;
+
+  const detailsParts: string[] = [];
+  if (e.description) detailsParts.push(e.description);
+  if (e.map_url) detailsParts.push(`Map: ${e.map_url}`);
+
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: e.name,
+    dates,
+    ctz: "Asia/Kolkata",
+  });
+  if (detailsParts.length) params.set("details", detailsParts.join("\n\n"));
+  if (e.venue) params.set("location", e.venue);
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}

@@ -2,8 +2,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import { LinkButton } from "@/components/Button";
-import { formatDate, formatTime, formatTimeRange } from "@/lib/utils";
+import { EVENT_MODE_LABELS, formatDate, formatTime, formatTimeRange } from "@/lib/utils";
 import { isAdmin } from "@/lib/auth";
+import type { EventMode } from "@/lib/types";
 
 type SearchParams = {
   view?: string;
@@ -18,7 +19,7 @@ type EventRow = {
   end_time: string | null;
   venue: string | null;
   capacity: number | null;
-  invite_only: boolean;
+  mode: EventMode;
 };
 
 export default async function EventsPage({
@@ -32,7 +33,7 @@ export default async function EventsPage({
 
   const { data: events } = await supabase
     .from("events")
-    .select("id, name, event_date, start_time, end_time, venue, capacity, invite_only")
+    .select("id, name, event_date, start_time, end_time, venue, capacity, mode")
     .order("event_date")
     .order("start_time");
 
@@ -128,11 +129,9 @@ function ListView({
                     <Link href={`/events/${e.id}`} className="font-medium hover:underline">
                       {e.name}
                     </Link>
-                    {e.invite_only && (
-                      <div className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
-                        Invite-only
-                      </div>
-                    )}
+                    <div className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
+                      {EVENT_MODE_LABELS[e.mode]}
+                    </div>
                   </td>
                   <td className="px-4 py-3 align-top text-neutral-700">{e.venue ?? "—"}</td>
                   <td className="px-4 py-3 align-top text-right tabular-nums font-medium">

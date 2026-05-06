@@ -30,6 +30,8 @@ export type RsvpStatus =
   | "tentative"
   | "waitlist";
 
+export type EventMode = "invite" | "rsvp";
+
 export type Profile = {
   id: string;
   email: string;
@@ -48,6 +50,7 @@ export type Vip = {
   type: VipType;
   category: VipCategory;
   added_year: number | null;
+  one_time: boolean;
   hotel: string | null;
   arrival_date: string | null;
   arrival_time: string | null;
@@ -75,9 +78,8 @@ export type Event = {
   end_time: string | null;
   venue: string | null;
   map_url: string | null;
-  dress_code: string | null;
   capacity: number | null;
-  invite_only: boolean;
+  mode: EventMode;
   notes: string | null;
   created_at: string;
   updated_at: string;

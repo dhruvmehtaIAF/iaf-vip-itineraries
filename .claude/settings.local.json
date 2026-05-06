@@ -18,7 +18,9 @@
       "Bash(mv Horizontal.png logo-horizontal.png)",
       "Bash(rm -f file.svg globe.svg next.svg vercel.svg window.svg)",
       "Bash(npx tsc *)",
-      "Bash(npx next *)"
+      "Bash(npx next *)",
+      "Bash(git ls-remote *)",
+      "Bash(dir *.png *.jpg *.jpeg *.svg)"
     ]
   }
 }

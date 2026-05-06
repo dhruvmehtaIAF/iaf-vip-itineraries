@@ -33,7 +33,7 @@ export default async function VipDetailPage({
       supabase.from("companions").select("*").eq("vip_id", id).order("created_at"),
       supabase
         .from("invitations")
-        .select("id, status, companions_attending, list_number, notes, event:events(id,name,event_date,start_time,end_time,venue,dress_code)")
+        .select("id, status, companions_attending, list_number, notes, event:events(id,name,event_date,start_time,end_time,venue)")
         .eq("vip_id", id),
       supabase.from("events").select("id, name, event_date").order("event_date"),
     ]);
@@ -54,7 +54,6 @@ export default async function VipDetailPage({
       start_time: string | null;
       end_time: string | null;
       venue: string | null;
-      dress_code: string | null;
     } | null;
   };
 
@@ -188,12 +187,9 @@ export default async function VipDetailPage({
                       {i.event!.venue && (
                         <div className="text-sm text-neutral-500">{i.event!.venue}</div>
                       )}
-                      {(i.event!.dress_code || i.companions_attending > 0) && (
+                      {i.companions_attending > 0 && (
                         <div className="mt-1 flex flex-wrap gap-3 text-xs text-neutral-500">
-                          {i.event!.dress_code && <span>Dress: {i.event!.dress_code}</span>}
-                          {i.companions_attending > 0 && (
-                            <span>+{i.companions_attending} companion(s)</span>
-                          )}
+                          <span>+{i.companions_attending} companion(s)</span>
                         </div>
                       )}
                     </div>

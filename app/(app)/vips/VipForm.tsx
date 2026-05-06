@@ -39,7 +39,6 @@ const textareaCls =
   "min-h-24 border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:border-neutral-900";
 
 const CURRENT_YEAR = new Date().getFullYear();
-// Generate years for "added_year": IAF 2010 .. current+1
 const ADDED_YEARS: number[] = Array.from(
   { length: CURRENT_YEAR + 1 - 2010 + 1 },
   (_, i) => CURRENT_YEAR + 1 - i
@@ -141,6 +140,21 @@ export default function VipForm({
           ))}
         </select>
       </Field>
+
+      <label className="flex items-start gap-3 sm:col-span-2 border border-neutral-200 px-4 py-3 cursor-pointer hover:border-neutral-400">
+        <input
+          type="checkbox"
+          name="one_time"
+          defaultChecked={vip?.one_time ?? false}
+          className="w-4 h-4 mt-0.5"
+        />
+        <span>
+          <span className="block text-sm font-medium">One-time VIP</span>
+          <span className="block text-xs text-neutral-500 mt-0.5">
+            Tick if this VIP is only being added for a specific year and not part of the ongoing roster.
+          </span>
+        </span>
+      </label>
 
       <Field label="Hotel" span={2}>
         <input name="hotel" defaultValue={vip?.hotel ?? ""} className={inputCls} />

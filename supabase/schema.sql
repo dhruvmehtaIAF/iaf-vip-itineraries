@@ -20,20 +20,23 @@ drop type if exists rsvp_status;
 drop type if exists vip_category;
 drop type if exists vip_type;
 drop type if exists vip_country;
+drop type if exists event_mode;
 
 -- ============================================================
 -- Enums
+-- user_role is preserved if it already exists (profiles depends on it).
+-- The data enums were dropped above, so creates are unconditional.
 -- ============================================================
 do $$ begin
-  if not exists (select 1 from pg_type where typname = 'user_role') then
-    create type user_role as enum ('admin', 'viewer');
-  end if;
+  create type user_role as enum ('admin', 'viewer');
+exception when duplicate_object then null;
 end $$;
 
 create type vip_country  as enum ('india', 'international');
 create type vip_type     as enum ('collector', 'exhibitor', 'curator', 'press', 'sponsor', 'artist', 'institution', 'other');
 create type vip_category as enum ('patrons', 'level_1', 'level_2', 'level_3', 'level_4', 'young_collector');
 create type rsvp_status  as enum ('not_sent', 'invited', 'accepted', 'declined', 'tentative', 'waitlist');
+create type event_mode   as enum ('invite', 'rsvp');
 
 -- ============================================================
 -- profiles: mirrors auth.users, adds role + name
@@ -98,6 +101,7 @@ create table vips (
   type           vip_type     not null default 'other',
   category       vip_category not null default 'level_4',
   added_year     int,
+  one_time       boolean      not null default false,
   hotel          text,
   arrival_date   date,
   arrival_time   time,
@@ -107,10 +111,11 @@ create table vips (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-create index vips_country_idx  on vips (country);
-create index vips_type_idx     on vips (type);
-create index vips_category_idx on vips (category);
+create index vips_country_idx    on vips (country);
+create index vips_type_idx       on vips (type);
+create index vips_category_idx   on vips (category);
 create index vips_added_year_idx on vips (added_year);
+create index vips_one_time_idx   on vips (one_time);
 
 -- companions (+1s)
 create table companions (
@@ -134,9 +139,8 @@ create table events (
   end_time time,
   venue text,
   map_url text,
-  dress_code text,
   capacity int,
-  invite_only boolean not null default true,
+  mode event_mode not null default 'invite',
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

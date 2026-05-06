@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import { LinkButton } from "@/components/Button";
 import StatusBadge from "@/components/StatusBadge";
 import {
+  EVENT_MODE_LABELS,
   VIP_CATEGORY_LABELS,
   VIP_TYPE_LABELS,
   formatDate,
@@ -73,9 +74,9 @@ export default async function EventDetailPage({
     <>
       <PageHeader
         back={{ href: "/events", label: "All events" }}
-        eyebrow={`${formatDate(event.event_date)} · ${formatTimeRange(event.start_time, event.end_time) || "All day"}`}
+        eyebrow={`${formatDate(event.event_date)} · ${formatTimeRange(event.start_time, event.end_time) || "All day"} · ${EVENT_MODE_LABELS[event.mode as keyof typeof EVENT_MODE_LABELS] ?? ""}`}
         title={event.name}
-        subtitle={[event.venue, event.dress_code && `Dress: ${event.dress_code}`].filter(Boolean).join(" · ")}
+        subtitle={event.venue ?? ""}
         actions={
           <div className="flex items-center gap-2">
             <LinkButton href={`/events/${event.id}/guests/csv`} variant="secondary">

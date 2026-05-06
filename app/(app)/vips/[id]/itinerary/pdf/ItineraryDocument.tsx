@@ -1,18 +1,25 @@
-import { Document, Page, Text, View, StyleSheet, Link } from "@react-pdf/renderer";
+import {
+  Document,
+  Page,
+  Text,
+  View,
+  StyleSheet,
+  Link,
+  Image,
+} from "@react-pdf/renderer";
 import {
   formatDate,
   formatDateTime,
   formatTimeRange,
-  VIP_COUNTRY_LABELS,
+  googleCalendarUrl,
 } from "@/lib/utils";
-import type { VipCountry } from "@/lib/types";
 
 // Built-in @react-pdf fonts — Times-Roman / Times-Bold for the elegant
 // editorial feel; Helvetica for small-caps labels. No external fetches.
 const s = StyleSheet.create({
   page: {
     paddingTop: 56,
-    paddingBottom: 64,
+    paddingBottom: 56,
     paddingHorizontal: 56,
     fontFamily: "Times-Roman",
     fontSize: 10.5,
@@ -22,11 +29,14 @@ const s = StyleSheet.create({
   brandBar: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-end",
+    alignItems: "center",
     borderBottom: 0.75,
     borderBottomColor: "#0a0a0a",
     paddingBottom: 14,
     marginBottom: 36,
+  },
+  logo: {
+    width: 130,
   },
   brand: {
     fontFamily: "Times-Bold",
@@ -137,27 +147,16 @@ const s = StyleSheet.create({
     color: "#404040",
     marginBottom: 1.5,
   },
-  mapLink: {
+  linkRow: {
+    flexDirection: "row",
+    gap: 14,
+    marginTop: 4,
+  },
+  smallLink: {
     fontFamily: "Helvetica",
     fontSize: 9,
     color: "#525252",
     textDecoration: "underline",
-  },
-  footer: {
-    position: "absolute",
-    bottom: 28,
-    left: 56,
-    right: 56,
-    fontFamily: "Helvetica",
-    fontSize: 7.5,
-    color: "#737373",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    borderTop: 0.5,
-    borderTopColor: "#d4d4d4",
-    paddingTop: 8,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
   },
   empty: {
     fontFamily: "Times-Italic",
@@ -176,7 +175,6 @@ export type ItineraryEvent = {
   end_time: string | null;
   venue: string | null;
   map_url: string | null;
-  dress_code: string | null;
   notes: string | null;
   companions_attending: number;
 };
@@ -184,7 +182,6 @@ export type ItineraryEvent = {
 export type ItineraryProps = {
   vip: {
     full_name: string;
-    country: VipCountry | null;
     email: string | null;
     phone: string | null;
     hotel: string | null;
@@ -195,21 +192,24 @@ export type ItineraryProps = {
   };
   events: ItineraryEvent[];
   companions: { full_name: string }[];
-  generatedAt: string;
+  logo: Buffer | null;
 };
 
-export default function ItineraryDocument({ vip, events, companions, generatedAt }: ItineraryProps) {
+export default function ItineraryDocument({ vip, events, companions, logo }: ItineraryProps) {
   const arrival = vip.arrival_date ? formatDateTime(vip.arrival_date, vip.arrival_time) : null;
   const departure = vip.departure_date
     ? formatDateTime(vip.departure_date, vip.departure_time)
     : null;
-  const country = vip.country ? VIP_COUNTRY_LABELS[vip.country] : null;
 
   return (
     <Document title={`${vip.full_name} — IAF 2027 Itinerary`}>
       <Page size="A4" style={s.page} wrap>
         <View style={s.brandBar}>
-          <Text style={s.brand}>INDIA ART FAIR</Text>
+          {logo ? (
+            <Image src={logo} style={s.logo} />
+          ) : (
+            <Text style={s.brand}>INDIA ART FAIR</Text>
+          )}
           <View style={s.rightBlock}>
             <Text style={s.eyebrow}>VIP Itinerary</Text>
             <Text style={s.eyebrow}>IAF 2027</Text>
@@ -217,9 +217,8 @@ export default function ItineraryDocument({ vip, events, companions, generatedAt
         </View>
 
         <Text style={s.title}>{vip.full_name}</Text>
-        {country && <Text style={s.subtitle}>{country}</Text>}
 
-        <Text style={s.sectionTitle}>Profile</Text>
+        <Text style={s.sectionTitle}>Information</Text>
         <View style={s.sectionRule} />
         <View style={s.metaGrid}>
           {vip.email && (
@@ -280,12 +279,6 @@ export default function ItineraryDocument({ vip, events, companions, generatedAt
                 <Text style={s.eventName}>{e.name}</Text>
                 {e.description && <Text style={s.eventDescription}>{e.description}</Text>}
                 {e.venue && <Text style={s.eventMeta}>{e.venue}</Text>}
-                {e.map_url && (
-                  <Link src={e.map_url} style={s.mapLink}>
-                    View on map
-                  </Link>
-                )}
-                {e.dress_code && <Text style={s.eventMeta}>Dress: {e.dress_code}</Text>}
                 {e.companions_attending > 0 && (
                   <Text style={s.eventMeta}>
                     Accompanied by {e.companions_attending} companion
@@ -293,15 +286,20 @@ export default function ItineraryDocument({ vip, events, companions, generatedAt
                   </Text>
                 )}
                 {e.notes && <Text style={s.eventMeta}>{e.notes}</Text>}
+                <View style={s.linkRow}>
+                  <Link src={googleCalendarUrl(e)} style={s.smallLink}>
+                    Add to calendar
+                  </Link>
+                  {e.map_url && (
+                    <Link src={e.map_url} style={s.smallLink}>
+                      View on map
+                    </Link>
+                  )}
+                </View>
               </View>
             </View>
           ))
         )}
-
-        <View style={s.footer} fixed>
-          <Text>India Art Fair · Internal</Text>
-          <Text>Generated {generatedAt}</Text>
-        </View>
       </Page>
     </Document>
   );

@@ -31,7 +31,7 @@ export default async function VipsPage({
 
   let query = supabase
     .from("vips")
-    .select("id, full_name, designation, email, country, type, category, added_year, hotel")
+    .select("id, full_name, designation, email, country, type, category, added_year, one_time")
     .order("full_name");
 
   if (params.q) query = query.ilike("full_name", `%${params.q}%`);
@@ -50,10 +50,9 @@ export default async function VipsPage({
     type: VipType;
     category: VipCategory;
     added_year: number | null;
-    hotel: string | null;
+    one_time: boolean;
   }>;
 
-  // Available years for the filter dropdown
   const { data: yearsData } = await supabase
     .from("vips")
     .select("added_year")
@@ -88,13 +87,12 @@ export default async function VipsPage({
               <th className="px-4 py-3 font-medium">Category</th>
               <th className="px-4 py-3 font-medium">Country</th>
               <th className="px-4 py-3 font-medium">Added</th>
-              <th className="px-4 py-3 font-medium">Hotel</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-neutral-500">
+                <td colSpan={5} className="px-4 py-8 text-center text-neutral-500">
                   No VIPs match your filters.
                 </td>
               </tr>
@@ -102,9 +100,16 @@ export default async function VipsPage({
               rows.map((v) => (
                 <tr key={v.id} className="border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                   <td className="px-4 py-3">
-                    <Link href={`/vips/${v.id}`} className="font-medium hover:underline">
-                      {v.full_name}
-                    </Link>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link href={`/vips/${v.id}`} className="font-medium hover:underline">
+                        {v.full_name}
+                      </Link>
+                      {v.one_time && (
+                        <span className="text-[10px] uppercase tracking-widest border border-amber-300 bg-amber-50 text-amber-800 px-1.5 py-0.5">
+                          One-time
+                        </span>
+                      )}
+                    </div>
                     {v.designation && (
                       <div className="text-xs text-neutral-500">{v.designation}</div>
                     )}
@@ -121,7 +126,6 @@ export default async function VipsPage({
                   <td className="px-4 py-3 text-neutral-700 tabular-nums">
                     {v.added_year ? formatAddedYear(v.added_year) : "—"}
                   </td>
-                  <td className="px-4 py-3 text-neutral-700">{v.hotel ?? "—"}</td>
                 </tr>
               ))
             )}

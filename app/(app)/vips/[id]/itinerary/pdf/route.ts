@@ -4,8 +4,21 @@ import ItineraryDocument, {
   type ItineraryEvent,
 } from "./ItineraryDocument";
 import { createElement } from "react";
+import fs from "node:fs";
+import path from "node:path";
 
 export const runtime = "nodejs";
+
+// Read the IAF logo at module load. If the file isn't there for any reason,
+// the PDF falls back to a text wordmark.
+let logoBuffer: Buffer | null = null;
+try {
+  logoBuffer = fs.readFileSync(
+    path.join(process.cwd(), "public", "logo-horizontal.png")
+  );
+} catch {
+  logoBuffer = null;
+}
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -17,7 +30,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     supabase
       .from("invitations")
       .select(
-        "status, companions_attending, event:events(id,name,description,event_date,start_time,end_time,venue,map_url,dress_code,notes)"
+        "status, companions_attending, event:events(id,name,description,event_date,start_time,end_time,venue,map_url,notes)"
       )
       .eq("vip_id", id)
       .eq("status", "accepted"),
@@ -28,12 +41,6 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   const invitations = invitationsRes.data;
 
   if (!vip) {
-    console.error("[pdf route] vip lookup failed", {
-      id,
-      vipError: vipRes.error,
-      invitationsError: invitationsRes.error,
-      companionsError: companionsRes.error,
-    });
     return new Response(
       `VIP not found.\nid: ${id}\nerror: ${JSON.stringify(vipRes.error)}`,
       { status: 404, headers: { "Content-Type": "text/plain" } }
@@ -52,7 +59,6 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       end_time: string | null;
       venue: string | null;
       map_url: string | null;
-      dress_code: string | null;
       notes: string | null;
     } | null;
   };
@@ -68,7 +74,6 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       end_time: i.event.end_time,
       venue: i.event.venue,
       map_url: i.event.map_url,
-      dress_code: i.event.dress_code,
       notes: i.event.notes,
       companions_attending: i.companions_attending,
     }))
@@ -76,19 +81,11 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       (a.event_date + (a.start_time ?? "")).localeCompare(b.event_date + (b.start_time ?? ""))
     );
 
-  const generatedAt = new Date().toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
   const element = createElement(ItineraryDocument, {
     vip,
     events,
     companions: companions ?? [],
-    generatedAt,
+    logo: logoBuffer,
   });
 
   const buffer = await renderToBuffer(element as Parameters<typeof renderToBuffer>[0]);

@@ -54,7 +54,6 @@ function parseYear(v: FormDataEntryValue | null): number | null {
   const n = Number(s);
   if (!Number.isFinite(n)) return null;
   const yr = Math.floor(n);
-  // Sanity check — IAF started 2008; allow a generous window.
   if (yr < 2000 || yr > 2100) return null;
   return yr;
 }
@@ -71,6 +70,7 @@ function extractPayload(formData: FormData) {
     type: parseType(formData.get("type")),
     category: parseCategory(formData.get("category")),
     added_year: parseYear(formData.get("added_year")),
+    one_time: formData.get("one_time") === "on",
     hotel: parseString(formData.get("hotel")),
     arrival_date: parseString(formData.get("arrival_date")),
     arrival_time: parseString(formData.get("arrival_time")),

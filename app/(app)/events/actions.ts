@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
+import type { EventMode } from "@/lib/types";
+
+const EVENT_MODES: EventMode[] = ["invite", "rsvp"];
 
 function parseString(v: FormDataEntryValue | null): string | null {
   const s = (v ?? "").toString().trim();
@@ -16,6 +19,11 @@ function parseInt(v: FormDataEntryValue | null): number | null {
   return Number.isFinite(n) ? Math.floor(n) : null;
 }
 
+function parseMode(v: FormDataEntryValue | null): EventMode {
+  const s = (v ?? "invite").toString();
+  return (EVENT_MODES as string[]).includes(s) ? (s as EventMode) : "invite";
+}
+
 export type EventFormState = { error?: string } | undefined;
 
 function extractPayload(formData: FormData) {
@@ -27,9 +35,8 @@ function extractPayload(formData: FormData) {
     end_time: parseString(formData.get("end_time")),
     venue: parseString(formData.get("venue")),
     map_url: parseString(formData.get("map_url")),
-    dress_code: parseString(formData.get("dress_code")),
     capacity: parseInt(formData.get("capacity")),
-    invite_only: formData.get("invite_only") === "on",
+    mode: parseMode(formData.get("mode")),
     notes: parseString(formData.get("notes")),
   };
 }

@@ -89,7 +89,7 @@ export default async function Dashboard() {
     <>
       <PageHeader
         eyebrow="IAF 2027"
-        title="Dashboard — v2 TEST"
+        title="Dashboard"
         subtitle="Live view of VIPs, events, and RSVP status across the fair."
       />
 

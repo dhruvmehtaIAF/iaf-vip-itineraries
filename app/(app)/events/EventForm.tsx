@@ -47,6 +47,7 @@ export default function EventForm({
   submitLabel: string;
 }) {
   const [state, formAction] = useActionState<EventFormState, FormData>(action, undefined);
+  const defaultMode = event?.mode ?? "invite";
 
   return (
     <form action={formAction} className="grid sm:grid-cols-3 gap-5 max-w-3xl">
@@ -108,9 +109,6 @@ export default function EventForm({
         />
       </Field>
 
-      <Field label="Dress code">
-        <input name="dress_code" defaultValue={event?.dress_code ?? ""} className={inputCls} />
-      </Field>
       <Field label="Capacity">
         <input
           type="number"
@@ -120,15 +118,40 @@ export default function EventForm({
           className={inputCls}
         />
       </Field>
-      <label className="flex items-center gap-2 self-end pb-2">
-        <input
-          type="checkbox"
-          name="invite_only"
-          defaultChecked={event?.invite_only ?? true}
-          className="w-4 h-4"
-        />
-        <span className="text-sm">Invite-only</span>
-      </label>
+
+      <fieldset className="sm:col-span-2 flex flex-col gap-2">
+        <span className="text-[11px] uppercase tracking-widest text-neutral-500">
+          Access
+        </span>
+        <div className="grid grid-cols-2 gap-px bg-neutral-200 border border-neutral-200">
+          <label className="flex items-start gap-3 bg-white px-3 py-2.5 cursor-pointer hover:bg-neutral-50">
+            <input
+              type="radio"
+              name="mode"
+              value="invite"
+              defaultChecked={defaultMode === "invite"}
+              className="mt-1"
+            />
+            <span>
+              <span className="block text-sm font-medium">By invitation</span>
+              <span className="block text-xs text-neutral-500 mt-0.5">Closed list — only invited VIPs.</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-3 bg-white px-3 py-2.5 cursor-pointer hover:bg-neutral-50">
+            <input
+              type="radio"
+              name="mode"
+              value="rsvp"
+              defaultChecked={defaultMode === "rsvp"}
+              className="mt-1"
+            />
+            <span>
+              <span className="block text-sm font-medium">Open RSVP</span>
+              <span className="block text-xs text-neutral-500 mt-0.5">Open to all VIPs — they RSVP to attend.</span>
+            </span>
+          </label>
+        </div>
+      </fieldset>
 
       <Field label="Internal notes" hint="Not shown on itinerary" span={3}>
         <textarea name="notes" defaultValue={event?.notes ?? ""} className={textareaCls} />
