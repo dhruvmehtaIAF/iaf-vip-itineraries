@@ -47,7 +47,7 @@ export default async function EventsPage({
   }
 
   const rows = (events ?? []) as EventRow[];
-  const view = params.view === "calendar" ? "calendar" : "list";
+  const view = params.view === "list" ? "list" : "calendar";
 
   return (
     <>
